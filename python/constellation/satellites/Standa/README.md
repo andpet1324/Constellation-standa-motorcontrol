@@ -83,6 +83,12 @@ Positions outside the travel range of the stage are rejected rather than clipped
 | `POS_Y` | Current position of the y axis | Float | 5s |
 | `POS_Z` | Current position of the z axis | Float | 5s |
 
+## Custom Commands
+
+| Command | Description | Arguments | Return Value | Allowed States |
+|---------|-------------|-----------|--------------|----------------|
+| `home` | Move all axes to their low limit switch and define zero there. The stage is left at zero. | - | Position of each axis (Section) | `INIT`, `ORBIT` |
+
 ## Taking data at several positions
 
 The satellite holds its position for the duration of a run. A scan over positions is therefore performed by a controller which reconfigures the position between runs:
@@ -94,8 +100,9 @@ for x in numpy.arange(0.0, 40.1, 10.0):
         ctrl.constellation.Standa.One.reconfigure({"position": {"x": x, "y": y}})
         ctrl.await_state(SatelliteState.ORBIT)
 
-        # Take data at this position
-        ctrl.constellation.start(f"x{x}_y{y}")
+        # Take data at this position. Run identifiers may only contain word
+        # characters and dashes, so the decimal point has to be replaced
+        ctrl.constellation.start(f"x{x:.3f}_y{y:.3f}".replace(".", "p"))
         ctrl.await_state(SatelliteState.RUN)
         ...
         ctrl.constellation.stop()

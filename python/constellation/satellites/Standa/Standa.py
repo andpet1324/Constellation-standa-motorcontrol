@@ -12,8 +12,10 @@ from typing import Any
 from .stage_config import Standa_8MT30_50
 from .motor_controller import Motors
 
+from constellation.core.commandmanager import cscp_requestable
 from constellation.core.configuration import Configuration
 from constellation.core.monitoring import schedule_metric
+from constellation.core.protocol.cscp1 import SatelliteState
 from constellation.core.satellite import Satellite
 
 _SUPPORTED_DEVICES = {
@@ -55,7 +57,7 @@ class Standa(Satellite):
         # Calibrate to zero
         if self.calibrate_on_launch:
             self.motors.calibrate()
-
+            
         return "Launched!"
 
     def do_reconfigure(self, config: Configuration) -> str | None:
@@ -78,10 +80,16 @@ class Standa(Satellite):
             self.motors.close()
         super().reentry()
 
-
     def do_stopping(self) -> str:
         run_duration = time.time() - self.start_time
         return f"Stopped after {run_duration:.1f}s"
+
+    @cscp_requestable([SatelliteState.INIT, SatelliteState.ORBIT])
+    def home(self) -> tuple[str, Any, dict[str, Any]]:
+        """Move all axes to their low limit switch and define zero there, leaving the stage at zero"""
+        self.motors.calibrate()
+        position = {axis: self.motors.get_position(axis) for axis in self.motors.ids}
+        return f"Homed, stage at {position}", position, {}
 
     @schedule_metric("mm", 5)
     def POS_X(self) -> float | None:
@@ -104,3 +112,21 @@ class Standa(Satellite):
         if motors is None or axis not in motors.ids:
             return None
         return motors.get_position(axis)
+    
+    @cscp_requestable([SatelliteState.INIT, SatelliteState.ORBIT])
+    def position_x(self) -> float | None:
+        "Returns the current x position of the stage"
+        pos_x = self._position("x")
+        return f"Stage x is at {pos_x}", pos_x, {}
+
+    @cscp_requestable([SatelliteState.INIT, SatelliteState.ORBIT])
+    def position_y(self) -> float | None:
+        "Returns the current y position of the stage"
+        pos_y = self._position("y")
+        return f"Stage y is at {pos_y}", pos_y, {}
+
+    @cscp_requestable([SatelliteState.INIT, SatelliteState.ORBIT])
+    def position_z(self) -> float | None:
+        "Returns the current z position of the stage"
+        pos_z = self._position("z")
+        return f"Stage z is at {pos_z}", pos_z, {}

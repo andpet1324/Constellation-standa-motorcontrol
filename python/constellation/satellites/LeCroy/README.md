@@ -66,6 +66,7 @@ The IP address to use in this satellite will be provided beside the selection bo
 | Command | Description | Arguments | Return Value | Allowed States |
 |---------|-------------|-----------|--------------|----------------|
 | `get_num_triggers` | Retrieve the number of triggers collected so far | - | Integer | any |
+| `calibrate` | Run the internal self-calibration of the scope (`*CAL?`), which takes up to a minute | - | Status code (Integer, 0 = passed) | `INIT`, `ORBIT` |
 
 ## Output data format
 
