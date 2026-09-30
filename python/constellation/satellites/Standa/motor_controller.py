@@ -96,7 +96,7 @@ class Motors:
         status = status_t()
         ximc.get_status(self.ids[axis], byref(status))
 
-        return bool(status.MoveSts)
+        return bool(status.MvCmdSts & MvcmdStatus.MVCMD_RUNNING)
 
     def move_abs(self, axis, mm):
         if not 0.0 <= mm <= 50.0:
@@ -121,4 +121,3 @@ class Motors:
                 return False
             time.sleep(poll_interval)
         return True
-

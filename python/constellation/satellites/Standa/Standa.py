@@ -27,6 +27,7 @@ class Standa(Satellite):
 
         super().__init__(*args, **kwargs)
         self.start_time = time.time()
+        self.motors = None
 
     def do_initializing(self, config: Configuration) -> str | None:
 
@@ -40,7 +41,8 @@ class Standa(Satellite):
         serials_section = config.get_section("axis_serials")
         serials = {axis: serials_section.get_int(axis) for axis in serials_section.get_keys()}
 
-        self.motors = Motors(serials, profile=self.profile, logger=self.log)
+        if not self.motors:
+            self.motors = Motors(serials, profile=self.profile, logger=self.log)
 
         self.calibrate_on_launch = config.get_bool("calibrate_on_launch", False)
 

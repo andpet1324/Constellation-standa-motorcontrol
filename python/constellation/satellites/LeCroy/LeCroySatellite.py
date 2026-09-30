@@ -32,8 +32,6 @@ class LeCroySatellite(TransmitterSatellite):
     _num_sequences: int = 1
     _num_triggers_acquired: int = 0
 
-    # Most recent trace per channel in V, published as metric. In sequence
-    # mode this is the last segment of the sequence.
     _last_waveform: dict[int, list[float]] = {}
     _horiz_interval: float = 0.0
     _horiz_offset: float = 0.0
@@ -67,8 +65,6 @@ class LeCroySatellite(TransmitterSatellite):
         self.bor["sampling_period"] = float(self._settings["TIME_DIV"].split(b" ")[1])
         self.bor["channels"] = ",".join([str(c) for c in self._channels])
 
-        # One waveform metric per active channel, the channels are only known
-        # after connecting to the scope so these cannot be decorated methods
         self.reset_metrics()
         self._last_waveform = {}
         for channel in self._channels:
@@ -114,7 +110,6 @@ class LeCroySatellite(TransmitterSatellite):
                     )  # already transform to V
                     event_payload = np.append(event_payload, trg_offsets)
                     event_payload = np.append(event_payload, wave_array)
-                    # numpy arrays cannot be packed by msgpack, hence the list
                     self._last_waveform[channel] = wave_array[-num_samples:].tolist()
                 data_record = self.new_data_record({"dtype": f"{event_payload.dtype}"})
                 data_record.add_block(event_payload.tobytes())
@@ -138,6 +133,12 @@ class LeCroySatellite(TransmitterSatellite):
         self.log.info(f"Stopping the run after {self._num_triggers_acquired} event(s)")
         return "Stopped acquisition"
 
+    def do_landing(self) -> str:
+        self._scope.clear()
+        self._scope.sock.close()
+        self.log.info(f"Landing...")
+        return "Landed"
+
     @cscp_requestable([SatelliteState.RUN])
     def get_num_triggers(self) -> tuple[str, int, dict[str, Any]]:
         return f"Number of triggers: {self._num_triggers_acquired}", self._num_triggers_acquired, {}
@@ -156,12 +157,12 @@ class LeCroySatellite(TransmitterSatellite):
     def NUM_TRIGGERS(self) -> int | None:
         return self._num_triggers_acquired
 
-    @schedule_metric("s", 10, [SatelliteState.RUN])
+    @schedule_metric("s", 1, [SatelliteState.RUN])
     def SAMPLING_PERIOD(self) -> float | None:
         """Time between two samples of the waveform metrics"""
         return self._horiz_interval if self._horiz_interval > 0 else None
 
-    @schedule_metric("s", 10, [SatelliteState.RUN])
+    @schedule_metric("s", 1, [SatelliteState.RUN])
     def SAMPLE_OFFSET(self) -> float | None:
         """Time of the first waveform sample relative to the trigger"""
         return self._horiz_offset if self._horiz_interval > 0 else None
