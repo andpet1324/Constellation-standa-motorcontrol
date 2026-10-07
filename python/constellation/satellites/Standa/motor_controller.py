@@ -5,11 +5,26 @@ SPDX-License-Identifier: EUPL-1.2
 Functionality for interacting with motor controllers.
 Original code by Daniil D.Rastorguev.
 """
+import os
 import time
 import logging
 
 from libximc.lowlevel import *
 from libximc.lowlevel import lib as ximc
+
+# udev links every USB serial port here by device name, independent of ttyACM/ttyUSB
+_SERIAL_BY_ID = '/dev/serial/by-id'
+
+
+def find_ximc_ports():
+    """
+    Find the ximc controllers among the serial ports, returned as ximc device URIs.
+    """
+    try:
+        names = sorted(os.listdir(_SERIAL_BY_ID))
+    except FileNotFoundError:
+        return []
+    return [f'xi-com://{os.path.join(_SERIAL_BY_ID, name)}' for name in names if 'ximc' in name.lower()]
 
 
 def steps_to_mm(steps, usteps):
@@ -30,22 +45,26 @@ class Motors:
         sn_to_axis = {int(sn): axis for axis, sn in serials.items()}
 
 
-        try:
-            device_enum = ximc.enumerate_devices(EnumerateFlags.ENUMERATE_PROBE, '')
-            device_count = ximc.get_device_count(device_enum)
-            self.log.info(f'ximc device count: {device_count}')
-        except Exception:
-            self.log.critical('Failed to detect ximc devices')
-            raise
+        device_names = [port.encode() for port in find_ximc_ports()]
+        if device_names:
+            self.log.info(f'Found ximc serial ports: {", ".join(name.decode() for name in device_names)}')
+        else:
+            # Fall back to the ximc enumeration, which only finds devices linked in /dev/ximc
+            try:
+                device_enum = ximc.enumerate_devices(EnumerateFlags.ENUMERATE_PROBE, b'')
+                device_names = [ximc.get_device_name(device_enum, i) for i in range(ximc.get_device_count(device_enum))]
+            except Exception:
+                self.log.critical('Failed to detect ximc devices')
+                raise
+        self.log.info(f'ximc device count: {len(device_names)}')
 
-        if not device_count:
+        if not device_names:
             self.log.critical('No ximc devices found!')
-            raise Exception()
+            raise Exception('No ximc devices found')
 
-        for device_index in range(device_count):
+        for device_name in device_names:
 
             try:
-                device_name = ximc.get_device_name(device_enum, device_index)
                 device_id = ximc.open_device(device_name)
                 if profile is not None:
                     profile(ximc, device_id)
