@@ -17,9 +17,6 @@ _SERIAL_BY_ID = '/dev/serial/by-id'
 
 
 def find_ximc_ports():
-    """
-    Find the ximc controllers among the serial ports, returned as ximc device URIs.
-    """
     try:
         names = sorted(os.listdir(_SERIAL_BY_ID))
     except FileNotFoundError:
@@ -49,7 +46,6 @@ class Motors:
         if device_names:
             self.log.info(f'Found ximc serial ports: {", ".join(name.decode() for name in device_names)}')
         else:
-            # Fall back to the ximc enumeration, which only finds devices linked in /dev/ximc
             try:
                 device_enum = ximc.enumerate_devices(EnumerateFlags.ENUMERATE_PROBE, b'')
                 device_names = [ximc.get_device_name(device_enum, i) for i in range(ximc.get_device_count(device_enum))]
